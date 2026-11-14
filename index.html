@@ -84,8 +84,20 @@
 
     <main class="max-w-md mx-auto px-4 -mt-4 relative z-20">
 
+        <!-- Beranda / dashboard -->
+        <section id="tab-beranda" class="space-y-4 mb-8">
+            <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6">
+                <p id="dashTanggal" class="text-sm text-gray-500">Hari ini</p>
+                <p id="dashRingkas" class="text-lg font-bold text-bi-blue mt-1">Memuat jadwal...</p>
+                <button type="button" onclick="showTab('booking')" class="w-full bg-bi-blue hover:bg-blue-800 text-white font-bold py-3 rounded-xl shadow-md mt-4 flex justify-center items-center">
+                    <i class="fas fa-calendar-plus mr-2"></i> Booking ruangan
+                </button>
+            </div>
+            <div id="dashRuangan" class="space-y-3"></div>
+        </section>
+
         <!-- Formulir booking -->
-        <section class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 mb-8">
+        <section id="tab-booking" class="hidden bg-white rounded-3xl shadow-lg border border-gray-100 p-6 mb-8">
             <h2 class="text-lg font-bold text-bi-blue mb-5 flex items-center">
                 <i class="fas fa-edit mr-2 bg-blue-50 p-2 rounded-xl text-bi-blue"></i> Formulir Booking
             </h2>
@@ -138,6 +150,8 @@
                     <textarea id="kegiatan" rows="2" required class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-bi-blue focus:bg-white transition-colors resize-none text-sm" placeholder="Contoh: Rapat Koordinasi Mingguan"></textarea>
                 </div>
 
+                <div id="infoBentrok" class="hidden"></div>
+
                 <button type="submit" class="w-full bg-bi-blue hover:bg-blue-800 active:bg-blue-900 text-white font-bold py-4 px-4 rounded-xl transition-all shadow-md mt-6 flex justify-center items-center">
                     <i class="fas fa-calendar-check mr-2 text-lg"></i> Simpan Reservasi
                 </button>
@@ -145,7 +159,7 @@
         </section>
 
         <!-- Daftar jadwal -->
-        <section>
+        <section id="tab-jadwal" class="hidden pt-10">
             <div class="flex items-center justify-between mb-4 px-2">
                 <h2 class="text-lg font-bold text-bi-blue flex items-center">
                     <i class="fas fa-list-alt mr-2"></i> Jadwal Terdaftar
@@ -158,6 +172,9 @@
                 </div>
             </div>
 
+            <select id="filterRuangan" onchange="tampilkanData()" class="w-full px-4 py-3 mb-4 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-bi-blue text-sm">
+                <option value="">Semua ruangan</option>
+            </select>
             <div id="daftarBooking" class="space-y-4">
                 <div id="pesanKosong" class="text-center py-12 bg-white rounded-3xl border border-blue-100 border-dashed">
                     <i class="fas fa-inbox text-5xl mb-4 text-blue-100"></i>
@@ -166,6 +183,15 @@
             </div>
         </section>
     </main>
+
+    <!-- Menu bawah -->
+    <nav class="fixed bottom-0 inset-x-0 z-30 bg-white border-t border-gray-200 shadow-[0_-2px_10px_rgba(0,0,0,0.06)]" style="padding-bottom: env(safe-area-inset-bottom, 0px)">
+        <div class="max-w-md mx-auto grid grid-cols-3">
+            <button id="nav-beranda" onclick="showTab('beranda')" class="py-2.5 flex flex-col items-center text-xs font-semibold text-bi-blue"><i class="fas fa-house text-lg mb-1"></i>Beranda</button>
+            <button id="nav-booking" onclick="showTab('booking')" class="py-2.5 flex flex-col items-center text-xs font-semibold text-gray-400"><i class="fas fa-calendar-plus text-lg mb-1"></i>Booking</button>
+            <button id="nav-jadwal" onclick="showTab('jadwal')" class="py-2.5 flex flex-col items-center text-xs font-semibold text-gray-400"><i class="fas fa-list-alt text-lg mb-1"></i>Jadwal</button>
+        </div>
+    </nav>
 
     <!-- Modal edit reservasi -->
     <div id="editModal" class="fixed inset-0 bg-black/50 z-40 hidden justify-center p-4 overflow-y-auto animate-fade-in">
@@ -515,6 +541,12 @@
                 return;
             }
 
+            const bentrok = cariBentrok(document.getElementById('ruangan').value, document.getElementById('tanggal').value, wMulai, wSelesai, null);
+            if (bentrok) {
+                showNotif(pesanBentrok(bentrok), 'error');
+                return;
+            }
+
             const form = this;
             const tombol = form.querySelector('button[type="submit"]');
             const labelAsli = tombol.innerHTML;
@@ -542,6 +574,8 @@
                     showNotif('Reservasi berhasil disimpan!', 'success');
                     form.reset();
                     updateTanggalTampil();
+                    updateInfoBentrok();
+                    showTab('jadwal');
                 } else {
                     showNotif(hasil.error || 'Gagal menyimpan.', 'error');
                 }
@@ -568,15 +602,19 @@
             const pesanKosong = document.getElementById('pesanKosong');
 
             wadah.innerHTML = '';
-            document.getElementById('badge-count').innerText = dataBooking.length;
+            dataSiap = true;
+            renderDashboard();
+            updateInfoBentrok();
+            const daftar = dataTerfilter();
+            document.getElementById('badge-count').innerText = daftar.length;
 
-            if (dataBooking.length === 0) {
+            if (daftar.length === 0) {
                 wadah.appendChild(pesanKosong);
                 pesanKosong.style.display = 'block';
                 return;
             }
 
-            const terurut = [...dataBooking].sort((a, b) => kunciUrut(a).localeCompare(kunciUrut(b)));
+            const terurut = [...daftar].sort((a, b) => kunciUrut(a).localeCompare(kunciUrut(b)));
 
             terurut.forEach(booking => {
                 const card = document.createElement('div');
@@ -658,6 +696,12 @@
             const errorJam = validasiJam(wMulai, wSelesai);
             if (errorJam) {
                 showNotif(errorJam, 'error');
+                return;
+            }
+
+            const bentrokEdit = cariBentrok(document.getElementById('editRuangan').value, document.getElementById('editTanggal').value, wMulai, wSelesai, idToEdit);
+            if (bentrokEdit) {
+                showNotif(pesanBentrok(bentrokEdit), 'error');
                 return;
             }
 
@@ -767,11 +811,124 @@
         }
 
         // ============================================================
+        // NAVIGASI, CEK BENTROK, DASHBOARD
+        // ============================================================
+        let dataSiap = false;
+
+        function showTab(nama) {
+            ['beranda', 'booking', 'jadwal'].forEach(t => {
+                document.getElementById('tab-' + t).classList.toggle('hidden', t !== nama);
+                const nav = document.getElementById('nav-' + t);
+                nav.classList.toggle('text-bi-blue', t === nama);
+                nav.classList.toggle('text-gray-400', t !== nama);
+            });
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function pilihRuangan(i) {
+            document.getElementById('ruangan').value = DAFTAR_RUANGAN[i];
+            updateInfoBentrok();
+            showTab('booking');
+        }
+
+        // Booking lain di ruangan & tanggal yang sama dengan jam saling tumpang tindih
+        function cariBentrok(ruangan, tanggal, mulai, selesai, abaikanId) {
+            return dataBooking.find(b => {
+                if (abaikanId && String(b.id) === String(abaikanId)) return false;
+                if (b.ruangan !== ruangan || b.tanggal !== tanggal) return false;
+                const w = parseWaktu(b.waktu);
+                return mulai < w.selesai && selesai > w.mulai;
+            });
+        }
+
+        function pesanBentrok(b) {
+            return `Bentrok dengan ${b.nama} (${b.waktu} WIB). Pilih jam lain.`;
+        }
+
+        // Info ketersediaan langsung di bawah form booking
+        function updateInfoBentrok() {
+            const el = document.getElementById('infoBentrok');
+            const r = document.getElementById('ruangan').value;
+            const t = document.getElementById('tanggal').value;
+            if (!r || !t || !dataSiap) { el.className = 'hidden'; return; }
+
+            const m = document.getElementById('waktuMulai').value;
+            const sl = document.getElementById('waktuSelesai').value;
+            const bentrok = (m && sl && sl > m) ? cariBentrok(r, t, m, sl, null) : null;
+            const terpakai = dataBooking.filter(b => b.ruangan === r && b.tanggal === t)
+                .sort((a, b) => kunciUrut(a).localeCompare(kunciUrut(b)));
+
+            let warna = 'bg-blue-50 text-bi-blue', html;
+            if (bentrok) {
+                warna = 'bg-red-50 text-red-600';
+                html = `<i class="fas fa-triangle-exclamation mr-1.5"></i>${esc(pesanBentrok(bentrok))}`;
+            } else if (terpakai.length) {
+                html = `<p class="mb-1">Jam yang sudah terpakai:</p>` +
+                    terpakai.map(b => `<p class="font-normal text-gray-600">${esc(b.waktu)} WIB · ${esc(b.nama)}</p>`).join('');
+            } else {
+                warna = 'bg-green-50 text-green-700';
+                html = `<i class="fas fa-circle-check mr-1.5"></i>Ruangan masih kosong pada tanggal ini.`;
+            }
+            el.className = `text-xs font-semibold rounded-xl p-3 ${warna}`;
+            el.innerHTML = html;
+        }
+
+        // Pilih jam lewat jam analog tidak memicu event, jadi dipantau lewat sini
+        const simpanJamAsli = simpanJamAnalog;
+        simpanJamAnalog = function () {
+            simpanJamAsli.apply(this, arguments);
+            updateInfoBentrok();
+        };
+
+        function dataTerfilter() {
+            const f = document.getElementById('filterRuangan').value;
+            return f ? dataBooking.filter(b => b.ruangan === f) : dataBooking;
+        }
+
+        function renderDashboard() {
+            if (!dataSiap) return;
+            const hari = tanggalHariIni();
+            const now = new Date();
+            const jam = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            const hariIni = dataBooking.filter(b => b.tanggal === hari);
+            const berjalan = b => { const w = parseWaktu(b.waktu); return jam >= w.mulai && jam < w.selesai; };
+            const dipakai = new Set(hariIni.filter(berjalan).map(b => b.ruangan));
+
+            document.getElementById('dashTanggal').innerText = formatTanggal(hari);
+            document.getElementById('dashRingkas').innerText =
+                `${dipakai.size} dari ${DAFTAR_RUANGAN.length} ruangan sedang dipakai · ${hariIni.length} booking hari ini`;
+
+            document.getElementById('dashRuangan').innerHTML = DAFTAR_RUANGAN.map((r, i) => {
+                const jadwal = hariIni.filter(b => b.ruangan === r)
+                    .sort((a, b) => kunciUrut(a).localeCompare(kunciUrut(b)));
+                const pakai = dipakai.has(r);
+                const chips = jadwal.length ? jadwal.map(b => {
+                    const w = parseWaktu(b.waktu);
+                    const kelas = berjalan(b) ? 'bg-bi-blue text-white'
+                        : (jam < w.mulai ? 'bg-blue-50 text-bi-blue' : 'bg-gray-100 text-gray-400');
+                    return `<div class="${kelas} rounded-xl px-3 py-2 text-xs"><span class="font-bold">${esc(b.waktu)}</span> · ${esc(b.nama)}<br><span class="opacity-80">${esc(b.kegiatan)}</span></div>`;
+                }).join('') : '<p class="text-xs text-gray-400">Tidak ada jadwal hari ini.</p>';
+                return `<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="font-bold text-gray-800 text-sm">${esc(r)}</h3>
+                        <span class="text-xs font-semibold ${pakai ? 'text-red-500' : 'text-green-600'}"><i class="fas fa-circle text-[8px] mr-1"></i>${pakai ? 'Dipakai' : 'Kosong'}</span>
+                    </div>
+                    <div class="space-y-2">${chips}</div>
+                    <button type="button" onclick="pilihRuangan(${i})" class="text-xs font-semibold text-bi-blue mt-3">Booking ruangan ini</button>
+                </div>`;
+            }).join('');
+        }
+
+        // ============================================================
         // INISIALISASI
         // ============================================================
         document.addEventListener('DOMContentLoaded', () => {
             isiPilihanRuangan();
             initInputTanggal();
+            document.getElementById('filterRuangan').insertAdjacentHTML('beforeend',
+                DAFTAR_RUANGAN.map(r => `<option value="${esc(r)}">${esc(r)}</option>`).join(''));
+            ['ruangan', 'tanggal'].forEach(id => document.getElementById(id).addEventListener('change', updateInfoBentrok));
+            setInterval(renderDashboard, 60000);
             muatData(false);
         });
     </script>
