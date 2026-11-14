@@ -405,141 +405,15 @@
             }
         });
 
-        // Di PC, klik di mana saja pada kolom tanggal/jam langsung membuka pemilih
-        const dipakaiMouse = window.matchMedia('(pointer: fine)').matches;
-        ['tanggal', 'waktu'].forEach(function(id) {
-            const el = document.getElementById(id);
-            el.addEventListener('click', function(e) {
-                if (id === 'waktu' && dipakaiMouse) {
-                    e.preventDefault();
-                    bukaJam();
-                    return;
-                }
-                try { if (el.showPicker) el.showPicker(); } catch (err) {}
-            });
+        
+            
+         // Di PC, klik di mana saja pada kolom tanggal langsung membuka kalender
+    const elTanggal = document.getElementById('tanggal');
+    if (elTanggal) {
+        elTanggal.addEventListener('click', function() {
+            try { if (elTanggal.showPicker) elTanggal.showPicker(); } catch (err) {}
         });
-
-        // ===== Pemilih jam analog =====
-        const jamModal = document.getElementById('jamModal');
-        const jamDial = document.getElementById('jamDial');
-        const jamBtnH = document.getElementById('jamBtnH');
-        const jamBtnM = document.getElementById('jamBtnM');
-        let jamH = 8, jamM = 0, jamMode = 'h';
-        const BIRU = '#004A98';
-        const pad2 = n => String(n).padStart(2, '0');
-
-        function titik(sudutDeg, r) {
-            const a = sudutDeg * Math.PI / 180;
-            return { x: 128 + r * Math.sin(a), y: 128 - r * Math.cos(a) };
-        }
-
-        function gambarJam() {
-            const R_LUAR = 98, R_DALAM = 62;
-            let svg = '<circle cx="128" cy="128" r="124" fill="#f3f4f6"/>';
-            let selX, selY, selLabel;
-
-            if (jamMode === 'h') {
-                const idx = jamH % 12;
-                const luar = jamH === 0 || jamH > 12 ? false : true;
-                const p = titik(idx * 30, luar ? R_LUAR : R_DALAM);
-                selX = p.x; selY = p.y;
-                svg += `<line x1="128" y1="128" x2="${p.x}" y2="${p.y}" stroke="${BIRU}" stroke-width="2"/>`;
-                svg += `<circle cx="${p.x}" cy="${p.y}" r="19" fill="${BIRU}"/>`;
-                for (let i = 0; i < 12; i++) {
-                    const lo = i === 0 ? 12 : i;
-                    const li = i === 0 ? 0 : 12 + i;
-                    const po = titik(i * 30, R_LUAR), pi = titik(i * 30, R_DALAM);
-                    const aktifO = luar && idx === i, aktifI = !luar && idx === i;
-                    svg += `<text x="${po.x}" y="${po.y}" text-anchor="middle" dominant-baseline="central" font-size="15" font-weight="600" fill="${aktifO ? '#fff' : '#1f2937'}">${lo}</text>`;
-                    svg += `<text x="${pi.x}" y="${pi.y}" text-anchor="middle" dominant-baseline="central" font-size="12" fill="${aktifI ? '#fff' : '#6b7280'}">${pad2(li)}</text>`;
-                }
-            } else {
-                const p = titik(jamM * 6, R_LUAR);
-                svg += `<line x1="128" y1="128" x2="${p.x}" y2="${p.y}" stroke="${BIRU}" stroke-width="2"/>`;
-                svg += `<circle cx="${p.x}" cy="${p.y}" r="19" fill="${BIRU}"/>`;
-                if (jamM % 5 !== 0) svg += `<circle cx="${p.x}" cy="${p.y}" r="3" fill="#fff"/>`;
-                for (let i = 0; i < 12; i++) {
-                    const po = titik(i * 30, R_LUAR);
-                    const aktif = jamM === i * 5;
-                    svg += `<text x="${po.x}" y="${po.y}" text-anchor="middle" dominant-baseline="central" font-size="15" font-weight="600" fill="${aktif ? '#fff' : '#1f2937'}">${pad2(i * 5)}</text>`;
-                }
-            }
-            svg += `<circle cx="128" cy="128" r="4" fill="${BIRU}"/>`;
-            jamDial.innerHTML = svg;
-
-            jamBtnH.textContent = pad2(jamH);
-            jamBtnM.textContent = pad2(jamM);
-            const aktifCls = ['bg-blue-100', 'text-bi-blue'];
-            jamBtnH.classList.remove(...aktifCls);
-            jamBtnM.classList.remove(...aktifCls);
-            (jamMode === 'h' ? jamBtnH : jamBtnM).classList.add(...aktifCls);
-        }
-
-        function bukaJam() {
-            const val = document.getElementById('waktu').value;
-            if (val) {
-                const [h, m] = val.split(':').map(Number);
-                jamH = h; jamM = m;
-            }
-            jamMode = 'h';
-            gambarJam();
-            jamModal.classList.remove('hidden');
-            jamModal.classList.add('flex');
-        }
-
-        function tutupJam() {
-            jamModal.classList.add('hidden');
-            jamModal.classList.remove('flex');
-        }
-
-        function aturDariPointer(e) {
-            const rect = jamDial.getBoundingClientRect();
-            const dx = (e.clientX - rect.left) / rect.width * 256 - 128;
-            const dy = (e.clientY - rect.top) / rect.height * 256 - 128;
-            const sudut = (Math.atan2(dx, -dy) * 180 / Math.PI + 360) % 360;
-            const idx = Math.round(sudut / 30) % 12;
-            if (jamMode === 'h') {
-                const luar = Math.hypot(dx, dy) > 80;
-                jamH = luar ? (idx === 0 ? 12 : idx) : (idx === 0 ? 0 : 12 + idx);
-            } else {
-                jamM = idx * 5;
-            }
-            gambarJam();
-        }
-
-        let sedangGeser = false;
-        jamDial.addEventListener('pointerdown', function(e) {
-            sedangGeser = true;
-            jamDial.setPointerCapture(e.pointerId);
-            aturDariPointer(e);
-        });
-        jamDial.addEventListener('pointermove', function(e) {
-            if (sedangGeser) aturDariPointer(e);
-        });
-        jamDial.addEventListener('pointerup', function() {
-            if (!sedangGeser) return;
-            sedangGeser = false;
-            if (jamMode === 'h') {
-                jamMode = 'm';
-                gambarJam();
-            }
-        });
-
-        jamBtnH.addEventListener('click', function() { jamMode = 'h'; gambarJam(); });
-        jamBtnM.addEventListener('click', function() { jamMode = 'm'; gambarJam(); });
-        document.getElementById('jamBatal').addEventListener('click', tutupJam);
-        jamModal.addEventListener('click', function(e) { if (e.target === jamModal) tutupJam(); });
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape' && !jamModal.classList.contains('hidden')) tutupJam();
-        });
-        document.getElementById('jamOk').addEventListener('click', function() {
-            const input = document.getElementById('waktu');
-            input.value = pad2(jamH) + ':' + pad2(jamM);
-            input.dispatchEvent(new Event('input', { bubbles: true }));
-            input.dispatchEvent(new Event('change', { bubbles: true }));
-            updateWaktuTampil();
-            tutupJam();
-        });
+    }  
 
         const NAMA_BULAN = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
 
