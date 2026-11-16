@@ -38,6 +38,19 @@
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #004A98; border-radius: 10px; }
+
+        /* Cetak arsip bulanan */
+        .print-only { display: none; }
+        @media print {
+            header, nav, .no-print, #notification { display: none !important; }
+            .print-only { display: block !important; }
+            body { background: #fff !important; padding-bottom: 0 !important; }
+            main { max-width: 100% !important; margin-top: 0 !important; padding: 0 !important; }
+            #tab-beranda, #tab-booking, #tab-jadwal { display: none !important; }
+            #tab-arsip { padding-top: 0 !important; }
+            .arsip-item { break-inside: avoid; }
+            * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
     </style>
 </head>
 
@@ -182,14 +195,58 @@
                 </div>
             </div>
         </section>
+
+        <!-- Arsip bulanan -->
+        <section id="tab-arsip" class="hidden pt-10">
+            <div class="print-only text-center mb-4">
+                <h1 class="text-xl font-bold text-bi-blue">Arsip Penggunaan Ruangan</h1>
+                <p id="arsipJudulCetak" class="text-sm text-gray-600"></p>
+                <p class="text-xs text-gray-500">KPwBI Prov Jateng</p>
+            </div>
+
+            <div class="no-print flex items-center justify-between mb-4 px-2">
+                <h2 class="text-lg font-bold text-bi-blue flex items-center">
+                    <i class="fas fa-box-archive mr-2"></i> Arsip Bulanan
+                </h2>
+            </div>
+
+            <div class="no-print flex items-center gap-2 mb-4">
+                <button type="button" onclick="geserArsip(-1)" class="w-11 h-11 shrink-0 bg-white border border-gray-200 rounded-xl text-bi-blue hover:bg-blue-50 shadow-sm" title="Bulan sebelumnya"><i class="fas fa-chevron-left"></i></button>
+                <select id="arsipBulan" onchange="pilihBulanArsip(this.value)" class="flex-1 min-w-0 px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-bi-blue text-sm font-semibold text-center"></select>
+                <button type="button" onclick="geserArsip(1)" class="w-11 h-11 shrink-0 bg-white border border-gray-200 rounded-xl text-bi-blue hover:bg-blue-50 shadow-sm" title="Bulan berikutnya"><i class="fas fa-chevron-right"></i></button>
+            </div>
+
+            <div id="arsipRingkasan" class="grid grid-cols-3 gap-3 mb-4"></div>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
+                <h3 class="font-bold text-sm text-bi-blue mb-3">Pemakaian per ruangan</h3>
+                <div id="arsipPerRuangan" class="space-y-3"></div>
+            </div>
+
+            <div class="no-print grid grid-cols-2 gap-3 mb-5">
+                <button type="button" onclick="unduhArsip()" class="bg-bi-blue hover:bg-blue-800 text-white font-bold py-3 rounded-xl shadow-md flex justify-center items-center text-sm">
+                    <i class="fas fa-file-csv mr-2"></i> Unduh Excel
+                </button>
+                <button type="button" onclick="cetakArsip()" class="bg-white border-2 border-bi-blue text-bi-blue hover:bg-blue-50 font-bold py-3 rounded-xl flex justify-center items-center text-sm">
+                    <i class="fas fa-print mr-2"></i> Cetak / PDF
+                </button>
+            </div>
+
+            <div class="flex items-center justify-between mb-2 px-2">
+                <h3 class="font-bold text-sm text-gray-700">Rincian penggunaan</h3>
+                <span id="arsipJumlah" class="bg-bi-blue text-white text-xs font-bold py-1 px-3 rounded-full shadow-sm">0</span>
+            </div>
+            <div id="arsipDaftar"></div>
+        </section>
     </main>
 
     <!-- Menu bawah -->
     <nav class="fixed bottom-0 inset-x-0 z-30 bg-white border-t border-gray-200 shadow-[0_-2px_10px_rgba(0,0,0,0.06)]" style="padding-bottom: env(safe-area-inset-bottom, 0px)">
-        <div class="max-w-md mx-auto grid grid-cols-3">
+        <div class="max-w-md mx-auto grid grid-cols-4">
             <button id="nav-beranda" onclick="showTab('beranda')" class="py-2.5 flex flex-col items-center text-xs font-semibold text-bi-blue"><i class="fas fa-house text-lg mb-1"></i>Beranda</button>
             <button id="nav-booking" onclick="showTab('booking')" class="py-2.5 flex flex-col items-center text-xs font-semibold text-gray-400"><i class="fas fa-calendar-plus text-lg mb-1"></i>Booking</button>
             <button id="nav-jadwal" onclick="showTab('jadwal')" class="py-2.5 flex flex-col items-center text-xs font-semibold text-gray-400"><i class="fas fa-list-alt text-lg mb-1"></i>Jadwal</button>
+            <button id="nav-arsip" onclick="showTab('arsip')" class="py-2.5 flex flex-col items-center text-xs font-semibold text-gray-400"><i class="fas fa-box-archive text-lg mb-1"></i>Arsip</button>
         </div>
     </nav>
 
@@ -604,6 +661,7 @@
             wadah.innerHTML = '';
             dataSiap = true;
             renderDashboard();
+            renderArsip();
             updateInfoBentrok();
             const daftar = dataTerfilter();
             document.getElementById('badge-count').innerText = daftar.length;
@@ -816,12 +874,13 @@
         let dataSiap = false;
 
         function showTab(nama) {
-            ['beranda', 'booking', 'jadwal'].forEach(t => {
+            ['beranda', 'booking', 'jadwal', 'arsip'].forEach(t => {
                 document.getElementById('tab-' + t).classList.toggle('hidden', t !== nama);
                 const nav = document.getElementById('nav-' + t);
                 nav.classList.toggle('text-bi-blue', t === nama);
                 nav.classList.toggle('text-gray-400', t !== nama);
             });
+            if (nama === 'arsip') renderArsip();
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
@@ -917,6 +976,177 @@
                     <button type="button" onclick="pilihRuangan(${i})" class="text-xs font-semibold text-bi-blue mt-3">Booking ruangan ini</button>
                 </div>`;
             }).join('');
+        }
+
+        // ============================================================
+        // ARSIP BULANAN
+        // ============================================================
+        const NAMA_HARI = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+        let arsipBulan = ''; // format "YYYY-MM"
+
+        function bulanIni() {
+            return tanggalHariIni().slice(0, 7);
+        }
+
+        // "2026-11" -> "November 2026"
+        function labelBulan(ym) {
+            const [y, m] = ym.split('-').map(Number);
+            return `${NAMA_BULAN[m - 1]} ${y}`;
+        }
+
+        // "2026-11-16" -> "Senin"
+        function namaHari(str) {
+            const [y, m, d] = str.split('-').map(Number);
+            return NAMA_HARI[new Date(y, m - 1, d).getDay()];
+        }
+
+        // "09:00 - 12:00" -> 180 (menit)
+        function durasiMenit(waktu) {
+            const w = parseWaktu(waktu);
+            const [h1, m1] = w.mulai.split(':').map(Number);
+            const [h2, m2] = w.selesai.split(':').map(Number);
+            const selisih = (h2 * 60 + m2) - (h1 * 60 + m1);
+            return selisih > 0 ? selisih : 0;
+        }
+
+        function formatJam(menit) {
+            return (menit / 60).toLocaleString('id-ID', { maximumFractionDigits: 1 });
+        }
+
+        function dataArsip() {
+            return dataBooking
+                .filter(b => String(b.tanggal).slice(0, 7) === arsipBulan)
+                .sort((a, b) => kunciUrut(a).localeCompare(kunciUrut(b)));
+        }
+
+        // Daftar bulan = semua bulan yang punya data + bulan berjalan
+        function isiPilihanBulan() {
+            const sel = document.getElementById('arsipBulan');
+            const bulan = new Set(dataBooking.map(b => String(b.tanggal).slice(0, 7)).filter(x => /^\d{4}-\d{2}$/.test(x)));
+            bulan.add(bulanIni());
+            if (!arsipBulan || !bulan.has(arsipBulan)) arsipBulan = bulanIni();
+            sel.innerHTML = [...bulan].sort().reverse().map(ym =>
+                `<option value="${ym}">${labelBulan(ym)}${ym === bulanIni() ? ' (berjalan)' : ''}</option>`).join('');
+            sel.value = arsipBulan;
+        }
+
+        function pilihBulanArsip(ym) {
+            arsipBulan = ym;
+            renderArsip();
+        }
+
+        // arah -1 = bulan lebih lama, +1 = bulan lebih baru
+        function geserArsip(arah) {
+            const sel = document.getElementById('arsipBulan');
+            const urut = [...sel.options].map(o => o.value); // terbaru -> terlama
+            const baru = urut.indexOf(arsipBulan) - arah;
+            if (baru < 0 || baru >= urut.length) return;
+            arsipBulan = urut[baru];
+            renderArsip();
+        }
+
+        function renderArsip() {
+            if (!dataSiap) return;
+            isiPilihanBulan();
+
+            const data = dataArsip();
+            const totalMenit = data.reduce((j, b) => j + durasiMenit(b.waktu), 0);
+            const hariTerpakai = new Set(data.map(b => b.tanggal)).size;
+
+            document.getElementById('arsipJudulCetak').innerText = labelBulan(arsipBulan);
+            document.getElementById('arsipJumlah').innerText = data.length;
+
+            const kartu = (angka, label) => `
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-3 text-center">
+                    <p class="text-xl font-bold text-bi-blue">${angka}</p>
+                    <p class="text-[11px] text-gray-500 leading-tight mt-1">${label}</p>
+                </div>`;
+            document.getElementById('arsipRingkasan').innerHTML =
+                kartu(data.length, 'Total booking') +
+                kartu(formatJam(totalMenit), 'Jam dipakai') +
+                kartu(hariTerpakai, 'Hari terpakai');
+
+            // Rekap per ruangan (ruangan lama yang sudah tidak ada di daftar tetap ikut)
+            const semuaRuangan = [...new Set([...DAFTAR_RUANGAN, ...data.map(b => b.ruangan)])];
+            const rekap = semuaRuangan.map(r => {
+                const d = data.filter(b => b.ruangan === r);
+                return { r, n: d.length, menit: d.reduce((j, b) => j + durasiMenit(b.waktu), 0) };
+            });
+            const terbesar = Math.max(1, ...rekap.map(x => x.menit));
+            document.getElementById('arsipPerRuangan').innerHTML = rekap.map(x => `
+                <div class="arsip-item">
+                    <div class="flex justify-between items-baseline gap-2 mb-1">
+                        <span class="text-sm font-semibold text-gray-800">${esc(x.r)}</span>
+                        <span class="text-xs text-gray-500 whitespace-nowrap">${x.n}x · ${formatJam(x.menit)} jam</span>
+                    </div>
+                    <div class="h-2 bg-blue-50 rounded-full overflow-hidden">
+                        <div class="h-2 bg-bi-blue rounded-full" style="width: ${Math.round(x.menit / terbesar * 100)}%"></div>
+                    </div>
+                </div>`).join('');
+
+            // Rincian, dikelompokkan per tanggal
+            const wadah = document.getElementById('arsipDaftar');
+            if (!data.length) {
+                wadah.innerHTML = `<div class="text-center py-10 bg-white rounded-3xl border border-blue-100 border-dashed">
+                    <i class="fas fa-inbox text-4xl mb-3 text-blue-100"></i>
+                    <p class="text-sm text-gray-500 font-medium">Tidak ada penggunaan ruangan pada bulan ini.</p></div>`;
+                return;
+            }
+            let html = '', tglSekarang = '';
+            data.forEach(b => {
+                if (b.tanggal !== tglSekarang) {
+                    tglSekarang = b.tanggal;
+                    html += `<p class="text-xs font-bold text-gray-500 uppercase tracking-wider mt-4 mb-2 px-1">${namaHari(b.tanggal)}, ${formatTanggal(b.tanggal)}</p>`;
+                }
+                html += `
+                    <div class="arsip-item bg-white p-4 rounded-2xl shadow-sm border border-gray-100 border-l-[6px] border-l-bi-blue mb-2">
+                        <div class="flex justify-between items-start gap-2 mb-2">
+                            <span class="inline-block bg-blue-50 text-bi-blue text-[11px] uppercase tracking-wider font-bold px-3 py-1.5 rounded-lg">${esc(b.ruangan)}</span>
+                            <span class="text-xs font-semibold text-bi-blue whitespace-nowrap"><i class="fas fa-clock mr-1 text-blue-300"></i>${esc(b.waktu)} WIB</span>
+                        </div>
+                        <p class="text-sm font-bold text-gray-800"><i class="fas fa-user-circle text-gray-400 mr-1.5 text-xs"></i>${esc(b.nama)}</p>
+                        <p class="text-sm text-gray-600 italic mt-1">"${esc(b.kegiatan)}"</p>
+                    </div>`;
+            });
+            wadah.innerHTML = html;
+        }
+
+        // Sel CSV: kutip + cegah rumus Excel dari teks yang diawali = + - @
+        function selCsv(nilai) {
+            let t = String(nilai ?? '');
+            if (/^[=+\-@\t\r]/.test(t)) t = "'" + t;
+            return `"${t.replace(/"/g, '""')}"`;
+        }
+
+        // Unduh sebagai CSV (dibuka di Excel / Google Sheets), pemisah titik koma untuk Excel Indonesia
+        function unduhArsip() {
+            const data = dataArsip();
+            if (!data.length) { showNotif('Tidak ada data pada bulan ini.', 'error'); return; }
+
+            const baris = [['No', 'Tanggal', 'Hari', 'Jam', 'Durasi (menit)', 'Ruangan', 'Peminjam', 'Kegiatan']];
+            data.forEach((b, i) => baris.push([
+                i + 1, formatTanggal(b.tanggal), namaHari(b.tanggal), b.waktu,
+                durasiMenit(b.waktu), b.ruangan, b.nama, b.kegiatan
+            ]));
+
+            const isi = '\ufeff' + baris.map(r => r.map(selCsv).join(';')).join('\r\n');
+            const url = URL.createObjectURL(new Blob([isi], { type: 'text/csv;charset=utf-8' }));
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Arsip-Ruangan-${arsipBulan}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            showNotif(`Arsip ${labelBulan(arsipBulan)} diunduh.`, 'success');
+        }
+
+        // Cetak / simpan PDF lewat dialog cetak browser
+        function cetakArsip() {
+            const judulAsli = document.title;
+            document.title = `Arsip Penggunaan Ruangan - ${labelBulan(arsipBulan)}`;
+            window.print();
+            document.title = judulAsli;
         }
 
         // ============================================================
