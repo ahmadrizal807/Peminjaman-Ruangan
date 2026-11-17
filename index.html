@@ -191,6 +191,11 @@
                 </div>
             </div>
 
+            <div class="relative mb-3">
+                <input type="search" id="cariJadwal" oninput="tampilkanData()" placeholder="Cari nama peminjam atau kegiatan..." class="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-bi-blue text-sm">
+                <i class="fas fa-search text-gray-400 text-xs absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+            </div>
+
             <select id="filterRuangan" onchange="tampilkanData()" class="w-full px-4 py-3 mb-4 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-bi-blue text-sm">
                 <option value="">Semua ruangan</option>
             </select>
@@ -391,6 +396,27 @@
         let idToDelete = null;
         let idToEdit = null;
         let notifTimeout;
+        let idBaruDiinput = null;
+        let highlightTimeout = null;
+
+        function ambilBookingSaya() {
+            try { return JSON.parse(localStorage.getItem('bi_booking_saya') || '[]'); }
+            catch { return []; }
+        }
+
+        function simpanBookingSaya(id) {
+            const daftar = ambilBookingSaya();
+            const strId = String(id);
+            if (!daftar.includes(strId)) {
+                daftar.push(strId);
+                try { localStorage.setItem('bi_booking_saya', JSON.stringify(daftar)); } catch (e) { /* abaikan */ }
+            }
+        }
+
+        function hapusBookingSaya(id) {
+            const daftar = ambilBookingSaya().filter(x => x !== String(id));
+            try { localStorage.setItem('bi_booking_saya', JSON.stringify(daftar)); } catch (e) { /* abaikan */ }
+        }
 
         // ============================================================
         // UTILITAS
@@ -662,14 +688,32 @@
             tombol.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Menyimpan...';
 
             try {
-                const hasil = await kirim({
+                const payload = {
                     action: 'add',
                     nama: document.getElementById('nama').value.trim(),
                     ruangan: document.getElementById('ruangan').value,
                     tanggal: document.getElementById('tanggal').value,
                     waktu: `${wMulai} - ${wSelesai}`,
                     kegiatan: document.getElementById('kegiatan').value.trim()
-                });
+                };
+                const hasil = await kirim(payload);
+
+                if (hasil.ok) {
+                    const itemBaru = (hasil.data || []).find(b =>
+                        b.ruangan === payload.ruangan &&
+                        b.tanggal === payload.tanggal &&
+                        b.waktu === payload.waktu &&
+                        b.nama === payload.nama
+                    );
+                    if (itemBaru) {
+                        idBaruDiinput = String(itemBaru.id);
+                        simpanBookingSaya(itemBaru.id);
+                    }
+
+                    document.getElementById('filterRuangan').value = '';
+                    const elCari = document.getElementById('cariJadwal');
+                    if (elCari) elCari.value = '';
+                }
 
                 if (hasil.data) {
                     dataBooking = hasil.data;
@@ -722,14 +766,26 @@
             }
 
             const terurut = [...daftar].sort((a, b) => kunciUrut(a).localeCompare(kunciUrut(b)));
+            const milikSaya = ambilBookingSaya();
 
             terurut.forEach(booking => {
+                const isBaru = String(booking.id) === String(idBaruDiinput);
+                const isMilikku = milikSaya.includes(String(booking.id));
+
                 const card = document.createElement('div');
-                card.className = 'bg-white p-5 rounded-2xl shadow-sm border border-gray-100 relative border-l-[6px] border-l-bi-blue flex flex-col gap-3';
+                card.id = `booking-${booking.id}`;
+                card.className = `p-5 rounded-2xl shadow-sm border relative border-l-[6px] flex flex-col gap-3 transition-all duration-500 ${
+                    isBaru
+                        ? 'bg-green-50/70 border-green-400 border-l-green-600 ring-2 ring-green-400'
+                        : 'bg-white border-gray-100 border-l-bi-blue'
+                }`;
                 card.innerHTML = `
                     <div class="flex justify-between items-start">
                         <div class="flex-1 pr-3">
-                            <span class="inline-block bg-blue-50 text-bi-blue text-[11px] uppercase tracking-wider font-bold px-3 py-1.5 rounded-lg mb-2">${esc(booking.ruangan)}</span>
+                            <div class="flex flex-wrap items-center gap-1.5 mb-2">
+                                <span class="inline-block bg-blue-50 text-bi-blue text-[11px] uppercase tracking-wider font-bold px-3 py-1.5 rounded-lg">${esc(booking.ruangan)}</span>
+                                ${isBaru ? '<span class="inline-block bg-green-600 text-white text-[10px] uppercase font-bold px-2.5 py-1 rounded-lg">Baru Diinput</span>' : (isMilikku ? '<span class="inline-block bg-amber-100 text-amber-800 text-[10px] uppercase font-bold px-2.5 py-1 rounded-lg">Booking Anda</span>' : '')}
+                            </div>
                             <h3 class="text-base font-bold text-gray-800 mb-1">
                                 <i class="fas fa-user-circle text-gray-400 mr-1.5 text-sm"></i>${esc(booking.nama)}
                             </h3>
@@ -872,6 +928,7 @@
             try {
                 const hasil = await kirim({ action: 'delete', id: id });
                 if (hasil.ok) {
+                    hapusBookingSaya(id);
                     dataBooking = hasil.data;
                     tampilkanData();
                     showNotif('Reservasi berhasil dihapus.', 'info');
@@ -930,7 +987,22 @@
                 nav.classList.toggle('text-gray-400', t !== nama);
             });
             if (nama === 'arsip') renderArsip();
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            if (nama === 'jadwal' && idBaruDiinput) {
+                clearTimeout(highlightTimeout);
+                setTimeout(() => {
+                    const target = document.getElementById(`booking-${idBaruDiinput}`);
+                    if (target) {
+                        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                    highlightTimeout = setTimeout(() => {
+                        idBaruDiinput = null;
+                        tampilkanData();
+                    }, 6000);
+                }, 100);
+            } else {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
         }
 
         function pilihRuangan(i) {
@@ -990,7 +1062,12 @@
 
         function dataTerfilter() {
             const f = document.getElementById('filterRuangan').value;
-            return f ? dataBooking.filter(b => b.ruangan === f) : dataBooking;
+            const q = (document.getElementById('cariJadwal')?.value || '').trim().toLowerCase();
+            return dataBooking.filter(b => {
+                const cocokRuang = !f || b.ruangan === f;
+                const cocokKata = !q || String(b.nama).toLowerCase().includes(q) || String(b.kegiatan).toLowerCase().includes(q);
+                return cocokRuang && cocokKata;
+            });
         }
 
         function renderDashboard() {
