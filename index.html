@@ -52,6 +52,9 @@
             #tab-beranda, #tab-booking, #tab-jadwal { display: none !important; }
             #tab-arsip { padding-top: 0 !important; }
             .arsip-item { break-inside: avoid; }
+            .arsip-hero { background: #fff !important; border: 1px solid #d1d5db !important; box-shadow: none !important; }
+            .arsip-hero, .arsip-hero * { color: #111 !important; border-color: #d1d5db !important; }
+            .arsip-hero #arsipRingkasan { margin-top: 0 !important; padding-top: 0 !important; border-top: 0 !important; }
             * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
     </style>
@@ -213,31 +216,43 @@
                 </h2>
             </div>
 
-            <div class="no-print flex items-center gap-2 mb-4">
-                <button type="button" onclick="geserArsip(-1)" class="w-11 h-11 shrink-0 bg-white border border-gray-200 rounded-xl text-bi-blue hover:bg-blue-50 shadow-sm" title="Bulan sebelumnya"><i class="fas fa-chevron-left"></i></button>
-                <select id="arsipBulan" onchange="pilihBulanArsip(this.value)" class="flex-1 min-w-0 px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-bi-blue text-sm font-semibold text-center"></select>
-                <button type="button" onclick="geserArsip(1)" class="w-11 h-11 shrink-0 bg-white border border-gray-200 rounded-xl text-bi-blue hover:bg-blue-50 shadow-sm" title="Bulan berikutnya"><i class="fas fa-chevron-right"></i></button>
+            <!-- Pemilih bulan + ringkasan dalam satu kartu -->
+            <div class="arsip-hero bg-bi-blue text-white rounded-3xl shadow-lg p-4 mb-4">
+                <div class="no-print flex items-center gap-2">
+                    <button id="arsipSebelumnya" type="button" onclick="geserArsip(-1)" class="w-10 h-10 shrink-0 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/25 flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-white/10" title="Bulan sebelumnya" aria-label="Bulan sebelumnya"><i class="fas fa-chevron-left text-sm"></i></button>
+                    <div class="relative flex-1 min-w-0 rounded-xl focus-within:ring-2 focus-within:ring-white/70">
+                        <div class="py-1 text-center pointer-events-none">
+                            <p id="arsipLabelBulan" class="text-lg font-bold leading-tight truncate"></p>
+                            <p id="arsipCatatanBulan" class="text-xs text-white/70 mt-0.5"></p>
+                        </div>
+                        <select id="arsipBulan" onchange="pilihBulanArsip(this.value)" aria-label="Pilih bulan arsip" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer text-gray-900"></select>
+                    </div>
+                    <button id="arsipBerikutnya" type="button" onclick="geserArsip(1)" class="w-10 h-10 shrink-0 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/25 flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-white/10" title="Bulan berikutnya" aria-label="Bulan berikutnya"><i class="fas fa-chevron-right text-sm"></i></button>
+                </div>
+                <div id="arsipRingkasan" class="grid grid-cols-3 text-center mt-4 pt-4 border-t border-white/15"></div>
             </div>
 
-            <div id="arsipRingkasan" class="grid grid-cols-3 gap-3 mb-4"></div>
-
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
-                <h3 class="font-bold text-sm text-bi-blue mb-3">Pemakaian per ruangan</h3>
-                <div id="arsipPerRuangan" class="space-y-3"></div>
+            <div id="arsipRuanganWrap" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
+                <h3 class="font-bold text-sm text-gray-800 mb-3">Pemakaian per ruangan</h3>
+                <div id="arsipPerRuangan" class="space-y-3.5"></div>
+                <p id="arsipTakTerpakai" class="hidden text-xs text-gray-400 leading-relaxed mt-3.5 pt-3 border-t border-gray-100"></p>
             </div>
 
-            <div class="no-print grid grid-cols-2 gap-3 mb-5">
-                <button type="button" onclick="unduhArsip()" class="bg-bi-blue hover:bg-blue-800 text-white font-bold py-3 rounded-xl shadow-md flex justify-center items-center text-sm">
+            <div class="no-print grid grid-cols-2 gap-3 mb-6">
+                <button id="arsipBtnUnduh" type="button" onclick="unduhArsip()" class="bg-white border border-gray-200 text-bi-blue hover:bg-blue-50 font-semibold py-3 rounded-xl shadow-sm flex justify-center items-center text-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white">
                     <i class="fas fa-file-csv mr-2"></i> Unduh Excel
                 </button>
-                <button type="button" onclick="cetakArsip()" class="bg-white border-2 border-bi-blue text-bi-blue hover:bg-blue-50 font-bold py-3 rounded-xl flex justify-center items-center text-sm">
+                <button id="arsipBtnCetak" type="button" onclick="cetakArsip()" class="bg-white border border-gray-200 text-bi-blue hover:bg-blue-50 font-semibold py-3 rounded-xl shadow-sm flex justify-center items-center text-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white">
                     <i class="fas fa-print mr-2"></i> Cetak / PDF
                 </button>
             </div>
 
-            <div class="flex items-center justify-between mb-2 px-2">
-                <h3 class="font-bold text-sm text-gray-700">Rincian penggunaan</h3>
-                <span id="arsipJumlah" class="bg-bi-blue text-white text-xs font-bold py-1 px-3 rounded-full shadow-sm">0</span>
+            <div class="flex items-end justify-between gap-2 mb-3 px-1">
+                <div>
+                    <h3 class="font-bold text-sm text-gray-800">Rincian penggunaan</h3>
+                    <p class="text-xs text-gray-400 mt-0.5">Jam dalam WIB</p>
+                </div>
+                <span id="arsipJumlah" class="text-xs font-semibold text-gray-500">0 booking</span>
             </div>
             <div id="arsipDaftar"></div>
         </section>
@@ -1053,15 +1068,35 @@
                 .sort((a, b) => kunciUrut(a).localeCompare(kunciUrut(b)));
         }
 
+        // Posisi bulan terhadap bulan berjalan, mis. "Bulan lalu", "3 bulan lalu"
+        function catatanBulan(ym) {
+            const [y, m] = ym.split('-').map(Number);
+            const [cy, cm] = bulanIni().split('-').map(Number);
+            const selisih = (y * 12 + m) - (cy * 12 + cm);
+            if (selisih === 0) return 'Bulan berjalan';
+            if (selisih === -1) return 'Bulan lalu';
+            if (selisih === 1) return 'Bulan depan';
+            return selisih < 0 ? `${-selisih} bulan lalu` : `${selisih} bulan lagi`;
+        }
+
         // Daftar bulan = semua bulan yang punya data + bulan berjalan
         function isiPilihanBulan() {
             const sel = document.getElementById('arsipBulan');
             const bulan = new Set(dataBooking.map(b => String(b.tanggal).slice(0, 7)).filter(x => /^\d{4}-\d{2}$/.test(x)));
             bulan.add(bulanIni());
             if (!arsipBulan || !bulan.has(arsipBulan)) arsipBulan = bulanIni();
-            sel.innerHTML = [...bulan].sort().reverse().map(ym =>
+            const urut = [...bulan].sort().reverse(); // terbaru -> terlama
+            sel.innerHTML = urut.map(ym =>
                 `<option value="${ym}">${labelBulan(ym)}${ym === bulanIni() ? ' (berjalan)' : ''}</option>`).join('');
             sel.value = arsipBulan;
+
+            // Label bulan di kartu ringkasan dan status tombol panah
+            document.getElementById('arsipLabelBulan').innerHTML =
+                `${esc(labelBulan(arsipBulan))} <i class="fas fa-chevron-down text-[10px] ml-1 opacity-70"></i>`;
+            document.getElementById('arsipCatatanBulan').innerText = catatanBulan(arsipBulan);
+            const idx = urut.indexOf(arsipBulan);
+            document.getElementById('arsipSebelumnya').disabled = idx === urut.length - 1;
+            document.getElementById('arsipBerikutnya').disabled = idx === 0;
         }
 
         function pilihBulanArsip(ym) {
@@ -1086,63 +1121,100 @@
             const data = dataArsip();
             const totalMenit = data.reduce((j, b) => j + durasiMenit(b.waktu), 0);
             const hariTerpakai = new Set(data.map(b => b.tanggal)).size;
+            const hariIni = tanggalHariIni();
 
             document.getElementById('arsipJudulCetak').innerText = labelBulan(arsipBulan);
-            document.getElementById('arsipJumlah').innerText = data.length;
+            document.getElementById('arsipJumlah').innerText = `${data.length} booking`;
+            document.getElementById('arsipBtnUnduh').disabled = !data.length;
+            document.getElementById('arsipBtnCetak').disabled = !data.length;
 
-            const kartu = (angka, label) => `
-                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-3 text-center">
-                    <p class="text-xl font-bold text-bi-blue">${angka}</p>
-                    <p class="text-[11px] text-gray-500 leading-tight mt-1">${label}</p>
+            // Ringkasan bulan (di dalam kartu biru)
+            const statistik = (angka, label, awal) => `
+                <div class="px-2 ${awal ? '' : 'border-l border-white/15'}">
+                    <p class="text-2xl font-extrabold leading-none">${angka}</p>
+                    <p class="text-xs text-white/70 mt-1.5">${label}</p>
                 </div>`;
             document.getElementById('arsipRingkasan').innerHTML =
-                kartu(data.length, 'Total booking') +
-                kartu(formatJam(totalMenit), 'Jam dipakai') +
-                kartu(hariTerpakai, 'Hari terpakai');
+                statistik(data.length, 'Booking', true) +
+                statistik(formatJam(totalMenit), 'Jam dipakai', false) +
+                statistik(hariTerpakai, 'Hari terpakai', false);
 
-            // Rekap per ruangan (ruangan lama yang sudah tidak ada di daftar tetap ikut)
+            // Rekap per ruangan: yang terpakai diurutkan dari terbanyak,
+            // ruangan yang belum dipakai diringkas jadi satu baris (ruangan lama yang sudah tidak ada di daftar tetap ikut)
             const semuaRuangan = [...new Set([...DAFTAR_RUANGAN, ...data.map(b => b.ruangan)])];
             const rekap = semuaRuangan.map(r => {
                 const d = data.filter(b => b.ruangan === r);
                 return { r, n: d.length, menit: d.reduce((j, b) => j + durasiMenit(b.waktu), 0) };
             });
-            const terbesar = Math.max(1, ...rekap.map(x => x.menit));
-            document.getElementById('arsipPerRuangan').innerHTML = rekap.map(x => `
+            const terpakai = rekap.filter(x => x.n > 0).sort((a, b) => b.menit - a.menit || b.n - a.n);
+            const belum = rekap.filter(x => x.n === 0);
+            const terbesar = Math.max(1, ...terpakai.map(x => x.menit));
+
+            document.getElementById('arsipRuanganWrap').classList.toggle('hidden', !data.length);
+            document.getElementById('arsipPerRuangan').innerHTML = terpakai.map(x => `
                 <div class="arsip-item">
-                    <div class="flex justify-between items-baseline gap-2 mb-1">
+                    <div class="flex justify-between items-baseline gap-3 mb-1.5">
                         <span class="text-sm font-semibold text-gray-800">${esc(x.r)}</span>
-                        <span class="text-xs text-gray-500 whitespace-nowrap">${x.n}x · ${formatJam(x.menit)} jam</span>
+                        <span class="text-sm font-bold text-bi-blue whitespace-nowrap">${formatJam(x.menit)} jam</span>
                     </div>
-                    <div class="h-2 bg-blue-50 rounded-full overflow-hidden">
-                        <div class="h-2 bg-bi-blue rounded-full" style="width: ${Math.round(x.menit / terbesar * 100)}%"></div>
+                    <div class="flex items-center gap-3">
+                        <div class="flex-1 h-2 bg-blue-50 rounded-full overflow-hidden">
+                            <div class="h-2 bg-bi-blue rounded-full" style="width: ${x.menit ? Math.max(4, Math.round(x.menit / terbesar * 100)) : 0}%"></div>
+                        </div>
+                        <span class="w-16 text-right text-xs text-gray-500 whitespace-nowrap">${x.n} booking</span>
                     </div>
                 </div>`).join('');
+            const keterangan = document.getElementById('arsipTakTerpakai');
+            keterangan.classList.toggle('hidden', !belum.length || !data.length);
+            keterangan.innerText = belum.length ? `Tidak dipakai: ${belum.map(x => x.r).join(', ')}` : '';
 
-            // Rincian, dikelompokkan per tanggal
+            // Rincian, dikelompokkan per tanggal (tanggal di kiri, kartu di kanan)
             const wadah = document.getElementById('arsipDaftar');
             if (!data.length) {
-                wadah.innerHTML = `<div class="text-center py-10 bg-white rounded-3xl border border-blue-100 border-dashed">
+                wadah.innerHTML = `<div class="text-center py-10 px-4 bg-white rounded-3xl border border-blue-100 border-dashed">
                     <i class="fas fa-inbox text-4xl mb-3 text-blue-100"></i>
-                    <p class="text-sm text-gray-500 font-medium">Tidak ada penggunaan ruangan pada bulan ini.</p></div>`;
+                    <p class="text-sm text-gray-600 font-semibold">Belum ada booking di ${esc(labelBulan(arsipBulan))}</p>
+                    ${document.getElementById('arsipBulan').options.length > 1 ? '<p class="text-xs text-gray-400 mt-1">Pakai tombol panah di atas untuk melihat bulan lain.</p>' : ''}</div>`;
                 return;
             }
-            let html = '', tglSekarang = '';
+
+            const kelompok = [];
             data.forEach(b => {
-                if (b.tanggal !== tglSekarang) {
-                    tglSekarang = b.tanggal;
-                    html += `<p class="text-xs font-bold text-gray-500 uppercase tracking-wider mt-4 mb-2 px-1">${namaHari(b.tanggal)}, ${formatTanggal(b.tanggal)}</p>`;
-                }
-                html += `
-                    <div class="arsip-item bg-white p-4 rounded-2xl shadow-sm border border-gray-100 border-l-[6px] border-l-bi-blue mb-2">
-                        <div class="flex justify-between items-start gap-2 mb-2">
-                            <span class="inline-block bg-blue-50 text-bi-blue text-[11px] uppercase tracking-wider font-bold px-3 py-1.5 rounded-lg">${esc(b.ruangan)}</span>
-                            <span class="text-xs font-semibold text-bi-blue whitespace-nowrap"><i class="fas fa-clock mr-1 text-blue-300"></i>${esc(b.waktu)} WIB</span>
-                        </div>
-                        <p class="text-sm font-bold text-gray-800"><i class="fas fa-user-circle text-gray-400 mr-1.5 text-xs"></i>${esc(b.nama)}</p>
-                        <p class="text-sm text-gray-600 italic mt-1">"${esc(b.kegiatan)}"</p>
-                    </div>`;
+                let g = kelompok[kelompok.length - 1];
+                if (!g || g.tanggal !== b.tanggal) { g = { tanggal: b.tanggal, item: [] }; kelompok.push(g); }
+                g.item.push(b);
             });
-            wadah.innerHTML = html;
+
+            wadah.innerHTML = '<div class="space-y-4">' + kelompok.map(g => {
+                const sekarang = g.tanggal === hariIni;
+                const kartu = g.item.map(b => {
+                    const w = parseWaktu(b.waktu);
+                    const jam = (w.mulai && w.selesai) ? `${esc(w.mulai)} – ${esc(w.selesai)}` : esc(b.waktu);
+                    const menit = durasiMenit(b.waktu);
+                    return `
+                        <div class="arsip-item bg-white rounded-2xl shadow-sm border border-gray-100 p-3.5">
+                            <div class="flex items-baseline justify-between gap-2">
+                                <p class="text-sm font-bold text-bi-blue"><i class="fas fa-clock mr-1.5 text-xs text-blue-300"></i>${jam}</p>
+                                ${menit ? `<span class="text-xs text-gray-400 whitespace-nowrap">${formatJam(menit)} jam</span>` : ''}
+                            </div>
+                            <p class="text-sm font-semibold text-gray-800 leading-snug mt-1.5 break-words">${b.kegiatan ? esc(b.kegiatan) : '<span class="font-normal text-gray-400">Tanpa keterangan</span>'}</p>
+                            <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-2.5">
+                                <span class="inline-flex items-center bg-blue-50 text-bi-blue text-xs font-semibold px-2.5 py-1 rounded-lg"><i class="fas fa-door-open mr-1.5 text-[10px]"></i>${esc(b.ruangan)}</span>
+                                <span class="text-xs text-gray-500"><i class="fas fa-user-circle mr-1 text-gray-400"></i>${esc(b.nama)}</span>
+                            </div>
+                        </div>`;
+                }).join('');
+                return `
+                    <div class="arsip-item flex gap-3">
+                        <div class="w-12 shrink-0">
+                            <div class="${sekarang ? 'bg-bi-blue text-white' : 'text-bi-blue'} rounded-xl py-1.5 text-center">
+                                <p class="text-xl font-extrabold leading-none">${Number(String(g.tanggal).slice(8, 10))}</p>
+                                <p class="text-[11px] mt-1 ${sekarang ? 'text-white/80' : 'text-gray-500'}">${namaHari(g.tanggal).slice(0, 3)}</p>
+                            </div>
+                        </div>
+                        <div class="flex-1 min-w-0 space-y-2">${kartu}</div>
+                    </div>`;
+            }).join('') + '</div>';
         }
 
         // Sel CSV: kutip + cegah rumus Excel dari teks yang diawali = + - @
