@@ -1207,9 +1207,12 @@
         }
 
         // ============================================================
-        // API (Google Apps Script)
+        // API (Google Apps Script) + ANTI-CACHE WEBVIEW APK
         // ============================================================
+        const APP_VERSION = '2.1.0';
+
         function apiSiap() {
+            if (window.google && google.script && google.script.run) return true;
             if (!API_URL || API_URL.startsWith('PASTE')) {
                 showNotif('URL database belum diatur.', 'error');
                 return false;
@@ -1217,13 +1220,88 @@
             return true;
         }
 
+        function urlAntiCache(url) {
+            const pemisah = url.includes('?') ? '&' : '?';
+            return `${url}${pemisah}_t=${Date.now()}&_v=${APP_VERSION}`;
+        }
+
+        function normalisasiTanggalServer(val) {
+            if (!val) return '';
+            const s = String(val).trim();
+            if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+            if (s.includes('T')) {
+                const d = new Date(s);
+                if (!isNaN(d.getTime())) {
+                    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                }
+            }
+            const mSlash = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+            if (mSlash) {
+                return `${mSlash[3]}-${mSlash[2].padStart(2, '0')}-${mSlash[1].padStart(2, '0')}`;
+            }
+            return s.slice(0, 10);
+        }
+
+        function normalisasiDaftarBooking(arr) {
+            if (!Array.isArray(arr)) return [];
+            return arr.map((b, idx) => ({
+                id: String(b.id ?? b.ID ?? idx + 1),
+                nama: String(b.nama ?? b.Nama ?? '').trim(),
+                ruangan: String(b.ruangan ?? b.Ruangan ?? '').trim(),
+                tanggal: normalisasiTanggalServer(b.tanggal ?? b.Tanggal ?? ''),
+                waktu: String(b.waktu ?? b.Waktu ?? '').trim(),
+                kegiatan: String(b.kegiatan ?? b.Kegiatan ?? '').trim()
+            })).filter(b => b.ruangan && b.tanggal);
+        }
+
+        function bersihkanCacheWebView() {
+            try {
+                if (window.gonative && gonative.webview && typeof gonative.webview.clearCache === 'function') {
+                    gonative.webview.clearCache();
+                }
+                if (window.median && median.webview && typeof median.webview.clearCache === 'function') {
+                    median.webview.clearCache();
+                }
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister())).catch(() => {});
+                }
+                if ('caches' in window) {
+                    caches.keys().then(keys => keys.forEach(k => caches.delete(k))).catch(() => {});
+                }
+            } catch (e) { /* abaikan */ }
+        }
+
         async function kirim(payload) {
-            const res = await fetch(API_URL, {
+            // Jika dijalankan langsung di dalam HtmlService Google Apps Script
+            if (window.google && google.script && google.script.run && typeof google.script.run.prosesBookingServer === 'function') {
+                const hasilGas = await new Promise((resolve, reject) => {
+                    google.script.run
+                        .withSuccessHandler(resolve)
+                        .withFailureHandler(reject)
+                        .prosesBookingServer(payload);
+                });
+                if (hasilGas && Array.isArray(hasilGas.data)) {
+                    hasilGas.data = normalisasiDaftarBooking(hasilGas.data);
+                }
+                return hasilGas;
+            }
+
+            const res = await fetch(urlAntiCache(API_URL), {
                 method: 'POST',
+                cache: 'no-store',
+                redirect: 'follow',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify(payload)
             });
-            return res.json();
+            const teks = await res.text();
+            let hasil = JSON.parse(teks);
+            if (hasil && (hasil.ok === undefined && hasil.status === 'success')) {
+                hasil.ok = true;
+            }
+            if (hasil && Array.isArray(hasil.data)) {
+                hasil.data = normalisasiDaftarBooking(hasil.data);
+            }
+            return hasil;
         }
 
         async function muatData(tampilNotif) {
@@ -1234,10 +1312,34 @@
             if (ikonBeranda) ikonBeranda.classList.add('fa-spin');
 
             try {
-                const res = await fetch(API_URL);
-                const hasil = await res.json();
-                if (hasil.ok) {
-                    dataBooking = hasil.data;
+                if (tampilNotif) bersihkanCacheWebView();
+
+                let hasil;
+                if (window.google && google.script && google.script.run && typeof google.script.run.ambilDataBookingServer === 'function') {
+                    hasil = await new Promise((resolve, reject) => {
+                        google.script.run
+                            .withSuccessHandler(resolve)
+                            .withFailureHandler(reject)
+                            .ambilDataBookingServer();
+                    });
+                } else {
+                    const res = await fetch(urlAntiCache(API_URL), {
+                        method: 'GET',
+                        cache: 'no-store',
+                        redirect: 'follow'
+                    });
+                    const teks = await res.text();
+                    hasil = JSON.parse(teks);
+                }
+
+                if (Array.isArray(hasil)) {
+                    hasil = { ok: true, data: hasil };
+                } else if (hasil && hasil.ok === undefined && Array.isArray(hasil.data)) {
+                    hasil.ok = true;
+                }
+
+                if (hasil && hasil.ok) {
+                    dataBooking = normalisasiDaftarBooking(hasil.data || []);
                     tampilkanData();
                     if (tampilNotif) showNotif('Jadwal ruangan berhasil diperbarui.', 'info');
                 }
@@ -1515,7 +1617,13 @@
                 const hasil = await kirim(payload);
 
                 if (hasil.ok) {
-                    const itemBaru = (hasil.data || []).find(b =>
+                    if (Array.isArray(hasil.data)) {
+                        dataBooking = hasil.data;
+                    } else {
+                        await muatData(false);
+                    }
+
+                    const itemBaru = (dataBooking || []).find(b =>
                         b.ruangan === payload.ruangan &&
                         b.tanggal === payload.tanggal &&
                         b.waktu === payload.waktu &&
@@ -1531,14 +1639,8 @@
                     const elCari = document.getElementById('cariJadwal');
                     if (elCari) elCari.value = '';
                     setFilterTanggalJadwal(payload.tanggal, false);
-                }
-
-                if (hasil.data) {
-                    dataBooking = hasil.data;
                     tampilkanData();
-                }
 
-                if (hasil.ok) {
                     showNotif('Reservasi berhasil disimpan!', 'success');
                     form.reset();
                     document.getElementById('tanggal').value = tanggalHariIni();
@@ -1767,12 +1869,13 @@
                     kegiatan: document.getElementById('editKegiatan').value.trim()
                 });
 
-                if (hasil.data) {
-                    dataBooking = hasil.data;
-                    tampilkanData();
-                }
-
                 if (hasil.ok) {
+                    if (Array.isArray(hasil.data)) {
+                        dataBooking = hasil.data;
+                        tampilkanData();
+                    } else {
+                        await muatData(false);
+                    }
                     closeEditModal();
                     showNotif('Reservasi berhasil diperbarui!', 'success');
                 } else {
@@ -1819,8 +1922,12 @@
                 const hasil = await kirim({ action: 'delete', id: id });
                 if (hasil.ok) {
                     hapusBookingSaya(id);
-                    dataBooking = hasil.data;
-                    tampilkanData();
+                    if (Array.isArray(hasil.data)) {
+                        dataBooking = hasil.data;
+                        tampilkanData();
+                    } else {
+                        await muatData(false);
+                    }
                     showNotif('Reservasi berhasil dibatalkan.', 'info');
                 } else {
                     showNotif(hasil.error || 'Gagal menghapus.', 'error');
@@ -2345,9 +2452,19 @@
         }
 
         // ============================================================
-        // INISIALISASI
+        // INISIALISASI & AUTO-SYNC SAAT APLIKASI HP DIBUKA KEMBALI
         // ============================================================
+        let waktuMuatTerakhir = 0;
+
         document.addEventListener('DOMContentLoaded', () => {
+            try {
+                const versiTersimpan = localStorage.getItem('bi_app_version');
+                if (versiTersimpan !== APP_VERSION) {
+                    bersihkanCacheWebView();
+                    localStorage.setItem('bi_app_version', APP_VERSION);
+                }
+            } catch (e) { /* abaikan */ }
+
             updateHeaderTanggal();
             isiPilihanRuangan();
             initInputTanggal();
@@ -2358,7 +2475,20 @@
                 updateInfoBentrok();
             }));
             setInterval(renderDashboard, 60000);
+            waktuMuatTerakhir = Date.now();
             muatData(false);
+
+            // Auto-refresh saat aplikasi APK di HP kembali aktif dari background
+            const segarkanSaatAktif = () => {
+                if (document.visibilityState === 'hidden') return;
+                const sekarang = Date.now();
+                if (sekarang - waktuMuatTerakhir > 15000 && !sedangKirim) {
+                    waktuMuatTerakhir = sekarang;
+                    muatData(false);
+                }
+            };
+            document.addEventListener('visibilitychange', segarkanSaatAktif);
+            window.addEventListener('focus', segarkanSaatAktif);
         });
     </script>
 </body>
