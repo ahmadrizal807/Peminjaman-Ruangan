@@ -645,14 +645,14 @@
                         <textarea id="kegiatan" rows="2" required class="w-full px-4 py-3 bg-slate-50/80 border border-slate-200/90 rounded-2xl focus:outline-none focus:ring-4 focus:ring-bi-blue/10 focus:border-bi-blue focus:bg-white transition-all resize-none text-sm text-slate-800 placeholder-slate-400" placeholder="Contoh: Rapat Koordinasi Mingguan"></textarea>
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="grid grid-cols-1 gap-4">
                         <div>
                             <label for="nama" class="block text-xs font-semibold text-slate-600 mb-1.5">
                                 Nama Peminjam <span class="text-red-500">*</span>
                             </label>
                             <div class="relative">
-                                <input type="text" id="nama" required class="w-full pl-9 pr-4 py-3 bg-slate-50/80 border border-slate-200/90 rounded-2xl focus:outline-none focus:ring-4 focus:ring-bi-blue/10 focus:border-bi-blue focus:bg-white transition-all text-sm text-slate-800 placeholder-slate-400" placeholder="Contoh: Budi">
-                                <i class="fas fa-user text-slate-400 text-xs absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                                <input type="text" id="nama" name="nama" required class="w-full min-h-[48px] pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-[#004A8F]/10 focus:border-[#004A8F] transition-all text-base sm:text-sm text-slate-800 placeholder-slate-400" placeholder="Contoh: Budi">
+                                <i class="fas fa-user text-slate-400 text-sm absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
                             </div>
                         </div>
                         <div>
@@ -660,8 +660,25 @@
                                 Unit / Fungsi <span class="text-slate-400 font-normal">(Opsional)</span>
                             </label>
                             <div class="relative">
-                                <input type="text" id="unitPeminjam" class="w-full pl-9 pr-4 py-3 bg-slate-50/80 border border-slate-200/90 rounded-2xl focus:outline-none focus:ring-4 focus:ring-bi-blue/10 focus:border-bi-blue focus:bg-white transition-all text-sm text-slate-800 placeholder-slate-400" placeholder="Contoh: FDSEK / Tim SP">
-                                <i class="fas fa-building text-slate-400 text-xs absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                                <select id="unitPeminjam" name="unitPeminjam" onchange="updateWarnaSelectUnit()" class="w-full min-h-[48px] pl-10 pr-10 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-[#004A8F]/10 focus:border-[#004A8F] transition-all text-base sm:text-sm text-slate-400 appearance-none cursor-pointer">
+                                    <option value="" class="text-slate-400">Pilih Unit / Fungsi</option>
+                                    <option value="PUR" class="text-slate-800">PUR</option>
+                                    <option value="KI" class="text-slate-800">KI</option>
+                                    <option value="LOGISTIK" class="text-slate-800">LOGISTIK</option>
+                                    <option value="SDM" class="text-slate-800">SDM</option>
+                                    <option value="IKSP" class="text-slate-800">IKSP</option>
+                                    <option value="FPPU" class="text-slate-800">FPPU</option>
+                                    <option value="HUMAS" class="text-slate-800">HUMAS</option>
+                                    <option value="KPKP" class="text-slate-800">KPKP</option>
+                                    <option value="FDSEK" class="text-slate-800">FDSEK</option>
+                                    <option value="CA" class="text-slate-800">CA</option>
+                                    <option value="IPEBI" class="text-slate-800">IPEBI</option>
+                                    <option value="PIPEBI" class="text-slate-800">PIPEBI</option>
+                                    <option value="PPBI" class="text-slate-800">PPBI</option>
+                                    <option value="PM" class="text-slate-800">PM</option>
+                                </select>
+                                <i class="fas fa-building text-slate-400 text-sm absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                                <i class="fas fa-chevron-down text-slate-400 text-xs absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
                             </div>
                         </div>
                     </div>
@@ -1594,7 +1611,8 @@
             const kegiatanInput = document.getElementById('kegiatan').value.trim();
             const ketTambahanInput = (document.getElementById('ketTambahan')?.value || '').trim();
 
-            const namaFinal = (unitInput && !namaInput.toLowerCase().includes(unitInput.toLowerCase()))
+            const sudahAdaUnit = unitInput && new RegExp(`(^|[\\s\\-\\(])${unitInput.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}($|[\\s\\-\\)])`, 'i').test(namaInput);
+            const namaFinal = (unitInput && !sudahAdaUnit)
                 ? `${namaInput} - ${unitInput}`
                 : namaInput;
             const kegiatanFinal = ketTambahanInput
@@ -1647,6 +1665,7 @@
 
                     showNotif('Reservasi berhasil disimpan!', 'success');
                     form.reset();
+                    updateWarnaSelectUnit();
                     document.getElementById('tanggal').value = tanggalHariIni();
                     updateTanggalTampil('tanggal', 'tanggalTampil');
                     renderPilihanRuanganVisual();
@@ -2465,6 +2484,18 @@
         // ============================================================
         let waktuMuatTerakhir = 0;
 
+        function updateWarnaSelectUnit() {
+            const selUnit = document.getElementById('unitPeminjam');
+            if (!selUnit) return;
+            if (selUnit.value) {
+                selUnit.classList.remove('text-slate-400');
+                selUnit.classList.add('text-slate-800', 'font-medium');
+            } else {
+                selUnit.classList.remove('text-slate-800', 'font-medium');
+                selUnit.classList.add('text-slate-400');
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             try {
                 const versiTersimpan = localStorage.getItem('bi_app_version');
@@ -2477,6 +2508,7 @@
             updateHeaderTanggal();
             isiPilihanRuangan();
             initInputTanggal();
+            updateWarnaSelectUnit();
             document.getElementById('filterRuangan').insertAdjacentHTML('beforeend',
                 DAFTAR_RUANGAN.map(r => `<option value="${esc(r)}">${esc(r)}</option>`).join(''));
             ['ruangan', 'tanggal'].forEach(id => document.getElementById(id).addEventListener('change', () => {
