@@ -788,6 +788,17 @@
                 </div>
             </div>
 
+            <!-- Banner Info Tanggal Lampau (Hanya muncul saat user memilih tanggal yang sudah lewat lewat #filterTanggal) -->
+            <div id="infoJadwalLampau" class="hidden rounded-2xl bg-amber-50/90 border border-amber-200/80 px-4 py-3 flex items-center justify-between gap-3 text-xs text-amber-800">
+                <div class="flex items-start gap-2.5 min-w-0">
+                    <i class="fas fa-history text-amber-600 mt-0.5 shrink-0"></i>
+                    <p id="teksJadwalLampau" class="leading-relaxed">Menampilkan jadwal pada tanggal yang sudah lewat. Seluruh riwayat ini juga tercatat di Tab Arsip.</p>
+                </div>
+                <button type="button" onclick="showTab('arsip')" class="shrink-0 font-bold text-amber-900 bg-white/80 hover:bg-white border border-amber-200 px-2.5 py-1.5 rounded-xl transition-colors">
+                    Buka Arsip
+                </button>
+            </div>
+
             <!-- Pesan Kosong Jadwal (Di luar daftarBooking agar tidak terhapus saat render ulang) -->
             <div id="pesanKosong" class="hidden text-center py-12 px-4 bg-white rounded-3xl border border-slate-200/80 border-dashed">
                 <div class="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 mx-auto flex items-center justify-center mb-3">
@@ -809,6 +820,19 @@
                     <div class="h-4 bg-slate-100 rounded w-1/2"></div>
                 </div>
             </div>
+
+            <!-- Tautan Halus ke Tab Arsip untuk Jadwal Hari-Hari Sebelumnya -->
+            <button type="button" onclick="showTab('arsip')" class="w-full text-left bg-white/85 hover:bg-bi-light/60 border border-slate-200/80 hover:border-bi-blue/30 rounded-2xl px-4 py-3.5 flex items-center justify-between gap-3 transition-all group">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-9 h-9 rounded-xl bg-slate-100 group-hover:bg-white text-slate-500 group-hover:text-bi-blue flex items-center justify-center shrink-0 transition-colors">
+                        <i class="fas fa-archive text-xs"></i>
+                    </div>
+                    <span class="text-xs font-medium text-slate-600 group-hover:text-bi-dark leading-snug">
+                        Jadwal rapat dari hari-hari sebelumnya otomatis tersimpan di Tab Arsip
+                    </span>
+                </div>
+                <i class="fas fa-arrow-right text-xs text-slate-400 group-hover:text-bi-blue group-hover:translate-x-0.5 shrink-0 transition-all"></i>
+            </button>
         </section>
 
         <!-- ======================================================= -->
@@ -1999,6 +2023,19 @@
             const badgeCount = document.getElementById('badge-count');
             if (badgeCount) badgeCount.innerText = daftar.length;
 
+            // Tampilkan banner info jika user memilih tanggal lampau lewat filter tanggal
+            const bannerLampau = document.getElementById('infoJadwalLampau');
+            if (bannerLampau) {
+                const isLampau = Boolean(filterTanggalJadwal) && filterTanggalJadwal < tanggalHariIni();
+                bannerLampau.classList.toggle('hidden', !isLampau);
+                if (isLampau) {
+                    const teksLampau = document.getElementById('teksJadwalLampau');
+                    if (teksLampau) {
+                        teksLampau.innerHTML = `Tanggal <strong>${esc(formatTanggal(filterTanggalJadwal))}</strong> sudah lewat dan tercatat di <strong>Tab Arsip</strong>.`;
+                    }
+                }
+            }
+
             if (daftar.length === 0) {
                 if (pesanKosong) {
                     pesanKosong.classList.remove('hidden');
@@ -2402,8 +2439,12 @@
         function dataTerfilter() {
             const fRuang = document.getElementById('filterRuangan').value;
             const q = (document.getElementById('cariJadwal')?.value || '').trim().toLowerCase();
+            const hariIni = tanggalHariIni();
             return dataBooking.filter(b => {
-                const cocokTanggal = !filterTanggalJadwal || b.tanggal === filterTanggalJadwal;
+                // Mode "Semua" hanya menampilkan jadwal hari ini & mendatang agar Tab Jadwal otomatis bersih saat berganti hari
+                const cocokTanggal = filterTanggalJadwal
+                    ? b.tanggal === filterTanggalJadwal
+                    : b.tanggal >= hariIni;
                 const cocokRuang = !fRuang || b.ruangan === fRuang;
                 const cocokKata = !q ||
                     String(b.nama).toLowerCase().includes(q) ||
@@ -2799,7 +2840,16 @@
                 renderPilihanRuanganVisual();
                 updateInfoBentrok();
             }));
-            setInterval(renderDashboard, 60000);
+            let tanggalAktifTerakhir = tanggalHariIni();
+            setInterval(() => {
+                const hariSekarang = tanggalHariIni();
+                if (hariSekarang !== tanggalAktifTerakhir) {
+                    tanggalAktifTerakhir = hariSekarang;
+                    if (dataSiap) tampilkanData();
+                } else {
+                    renderDashboard();
+                }
+            }, 60000);
             waktuMuatTerakhir = Date.now();
             muatData(false);
 
